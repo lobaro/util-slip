@@ -1,10 +1,30 @@
+#include <stdbool.h>
+#include <stdint.h>
+#include <assert.h>
+#include "github.com/Lobaro/util-ringbuf/drv_ringbuf.h"
+#include "slip.h"
 
-/* SLIP special character codes
- */
-#define END             0300    /* indicates end of packet */
-#define ESC             0333    /* indicates byte stuffing */
-#define ESC_END         0334    /* ESC ESC_END means END data byte */
-#define ESC_ESC         0335    /* ESC ESC_ESC means ESC data byte */
+void init_slip_buffer(slipBuffer_t* slip_buf, char* buf, int size) {
+	slip_buf->esc = false;
+	slip_buf->packetCnt = 0;
+	drv_rbuf_init(&(slip_buf->ringBuf), size, char, buf);
+}
+
+void slip_uart_putc(slipBuffer_t* slip_buf, char c) {
+	assert(!isBufferFull(&(slip_buf->ringBuf)));
+
+	if (slip_buf->esc) {
+		// A char was escaped, set back ESC state
+		slip_buf->esc = false;
+	} else if (c == SLIP_ESC) {
+		slip_buf->esc = true;
+	} else if (c == SLIP_END) {
+		// Got unescaped END
+		slip_buf->packetCnt++;
+	}
+
+	drv_rbuf_write(&(slip_buf->ringBuf), c);
+}
 
 /* SEND_PACKET: sends a packet of length "len", starting at
  * location "p".
@@ -14,7 +34,7 @@ void slip_send_packet(char *p, int len, void (*send_char)(char c)) {
 	/* send an initial END character to flush out any data that may
 	 * have accumulated in the receiver due to line noise
 	 */
-	send_char(END);
+	send_char(SLIP_END);
 
 	/* for each byte in the packet, send the appropriate character
 	 * sequence
@@ -25,18 +45,18 @@ void slip_send_packet(char *p, int len, void (*send_char)(char c)) {
 		 * special two character code so as not to make the
 		 * receiver think we sent an END
 		 */
-		case END:
-			send_char(ESC);
-			send_char(ESC_END);
+		case SLIP_END:
+			send_char(SLIP_ESC);
+			send_char(SLIP_ESC_END);
 			break;
 
 			/* if it's the same code as an ESC character,
 			 * we send a special two character code so as not
 			 * to make the receiver think we sent an ESC
 			 */
-		case ESC:
-			send_char(ESC);
-			send_char(ESC_ESC);
+		case SLIP_ESC:
+			send_char(SLIP_ESC);
+			send_char(SLIP_ESC_ESC);
 			break;
 			/* otherwise, we just send the character
 			 */
@@ -49,17 +69,21 @@ void slip_send_packet(char *p, int len, void (*send_char)(char c)) {
 
 	/* tell the receiver that we're done sending the packet
 	 */
-	send_char(END);
+	send_char(SLIP_END);
 }
 
-/* RECV_PACKET: receives a packet into the buffer located at "p".
+/* RECV_PACKET: reads a packet from buf into the buffer located at "p".
  *      If more than len bytes are received, the packet will
  *      be truncated.
  *      Returns the number of bytes stored in the buffer.
  */
-int slip_recv_packet(char *p, int len, char (*recv_char)()) {
+int slip_read_packet(slipBuffer_t* buf, char *p, int len) {
 	char c;
 	int received = 0;
+
+	if (!buf->packetCnt) {
+		return 0;
+	}
 
 	/* sit in a loop reading bytes until we put together
 	 * a whole packet.
@@ -69,7 +93,7 @@ int slip_recv_packet(char *p, int len, char (*recv_char)()) {
 	while (1) {
 		/* get a character to process
 		 */
-		c = recv_char();
+		drv_rbuf_read(&(buf->ringBuf), &c);
 
 		/* handle bytestuffing if necessary
 		 */
@@ -78,7 +102,7 @@ int slip_recv_packet(char *p, int len, char (*recv_char)()) {
 		/* if it's an END character then we're done with
 		 * the packet
 		 */
-		case END:
+		case SLIP_END:
 			/* a minor optimization: if there is no
 			 * data in the packet, ignore it. This is
 			 * meant to avoid bothering IP with all
@@ -86,17 +110,20 @@ int slip_recv_packet(char *p, int len, char (*recv_char)()) {
 			 * duplicate END characters which are in
 			 * turn sent to try to detect line noise.
 			 */
-			if (received)
+			buf->packetCnt--;
+			if (received) {
 				return received;
-			else
+			}
+			else {
 				break;
+			}
 
 			/* if it's the same code as an ESC character, wait
 			 * and get another character and then figure out
 			 * what to store in the packet based on that.
 			 */
-		case ESC:
-			c = recv_char();
+		case SLIP_ESC:
+			drv_rbuf_read(&(buf->ringBuf), &c);
 
 			/* if "c" is not one of these two, then we
 			 * have a protocol violation.  The best bet
@@ -104,19 +131,23 @@ int slip_recv_packet(char *p, int len, char (*recv_char)()) {
 			 * just stuff it into the packet
 			 */
 			switch (c) {
-			case ESC_END:
-				c = END;
+			case SLIP_ESC_END:
+				c = SLIP_END;
 				break;
-			case ESC_ESC:
-				c = ESC;
+			case SLIP_ESC_ESC:
+				c = SLIP_ESC;
 				break;
 			}
-			/* here we fall into the default handler and let
-			 * it store the character for us
-			 */
-		default:
-			if (received < len)
+			// Store the character
+			if (received < len) {
 				p[received++] = c;
+			}
+			break;
+		default:
+			// Store the character
+			if (received < len) {
+				p[received++] = c;
+			}
 		}
 	}
 }
