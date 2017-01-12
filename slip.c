@@ -3,27 +3,25 @@
 #include <assert.h>
 #include "github.com/Lobaro/util-ringbuf/drv_ringbuf.h"
 #include "slip.h"
+#include "FreeRTOS.h"
+#include "task.h"
 
-void init_slip_buffer(slipBuffer_t* slip_buf, char* buf, int size) {
-	slip_buf->esc = false;
+void init_slip_buffer(slipBuffer_t* slip_buf, uint8_t* buf, int size) {
 	slip_buf->packetCnt = 0;
+	slip_buf->last = SLIP_END;
 	drv_rbuf_init(&(slip_buf->ringBuf), size, char, buf);
 }
 
-void slip_uart_putc(slipBuffer_t* slip_buf, char c) {
-	assert(!isBufferFull(&(slip_buf->ringBuf)));
-
-	if (slip_buf->esc) {
-		// A char was escaped, set back ESC state
-		slip_buf->esc = false;
-	} else if (c == SLIP_ESC) {
-		slip_buf->esc = true;
-	} else if (c == SLIP_END) {
-		// Got unescaped END
-		slip_buf->packetCnt++;
-	}
+// Takes a slip encoded byte from the UART and puts it to the buffer
+void slip_uart_putc(volatile slipBuffer_t* slip_buf, char c) {
+	configASSERT(!isBufferFull(&(slip_buf->ringBuf)));
 
 	drv_rbuf_write(&(slip_buf->ringBuf), c);
+	if (c == SLIP_END && slip_buf->last != SLIP_END) {
+		// Got END for non empty packet
+		slip_buf->packetCnt++;
+	}
+	slip_buf->last = c;
 }
 
 /* SEND_PACKET: sends a packet of length "len", starting at
@@ -77,11 +75,11 @@ void slip_send_packet(char *p, int len, void (*send_char)(char c)) {
  *      be truncated.
  *      Returns the number of bytes stored in the buffer.
  */
-int slip_read_packet(slipBuffer_t* buf, char *p, int len) {
+int slip_read_packet(volatile slipBuffer_t* buf, uint8_t *p, int len) {
 	char c;
 	int received = 0;
 
-	if (!buf->packetCnt) {
+	if (buf->packetCnt == 0) {
 		return 0;
 	}
 
@@ -93,7 +91,14 @@ int slip_read_packet(slipBuffer_t* buf, char *p, int len) {
 	while (1) {
 		/* get a character to process
 		 */
+		if (isBufferEmpty(&(buf->ringBuf))) {
+			configASSERT(buf->packetCnt == 0);
+			return received;
+		}
+		//taskENTER_CRITICAL();
+		configASSERT(!isBufferFull(&(buf->ringBuf)));
 		drv_rbuf_read(&(buf->ringBuf), &c);
+		//taskEXIT_CRITICAL();
 
 		/* handle bytestuffing if necessary
 		 */
@@ -110,8 +115,8 @@ int slip_read_packet(slipBuffer_t* buf, char *p, int len) {
 			 * duplicate END characters which are in
 			 * turn sent to try to detect line noise.
 			 */
-			buf->packetCnt--;
 			if (received) {
+				buf->packetCnt--;
 				return received;
 			}
 			else {
@@ -123,7 +128,14 @@ int slip_read_packet(slipBuffer_t* buf, char *p, int len) {
 			 * what to store in the packet based on that.
 			 */
 		case SLIP_ESC:
+			if (isBufferEmpty(&(buf->ringBuf))) {
+				configASSERT(buf->packetCnt == 0);
+				return received;
+			}
+			//taskENTER_CRITICAL();
+			configASSERT(!isBufferFull(&(buf->ringBuf)));
 			drv_rbuf_read(&(buf->ringBuf), &c);
+			//taskEXIT_CRITICAL();
 
 			/* if "c" is not one of these two, then we
 			 * have a protocol violation.  The best bet

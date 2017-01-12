@@ -19,13 +19,13 @@
 
 typedef struct {
 	charRingBuf_t ringBuf;
-	bool esc; // true if we got an esc char
-	uint8_t packetCnt; // Number of packets in buffer
+	char last; // last received character.
+	uint8_t packetCnt; // Number of non empty packets in buffer.
 } slipBuffer_t;
 
-void init_slip_buffer(slipBuffer_t* slip_buf, char* buf, int size);
+void init_slip_buffer(slipBuffer_t* slip_buf, uint8_t* buf, int size);
 
-void slip_uart_putc(slipBuffer_t* slip_buf, char c);
+void slip_uart_putc(volatile slipBuffer_t* slip_buf, char c);
 
 /* slip_recv_packet: reads a packet from buf into the buffer
  * located at "p". If more than len bytes are received, the
@@ -33,7 +33,7 @@ void slip_uart_putc(slipBuffer_t* slip_buf, char c);
  * Returns the number of bytes stored in the buffer.
  * Returns 0 if the buffer does not contain a full packet.
  */
-int slip_read_packet(slipBuffer_t* buf, char *p, int len);
+int slip_read_packet(volatile slipBuffer_t* buf, uint8_t *p, int len);
 void slip_send_packet(char *p, int len, void (*send_char)(char c));
 
 #endif /* SRC_UTIL_SLIP_SLIP_H_ */
