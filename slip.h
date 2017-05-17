@@ -17,6 +17,12 @@
 #define SLIP_ESC_END         0334    /* ESC ESC_END means END data byte */
 #define SLIP_ESC_ESC         0335    /* ESC ESC_ESC means ESC data byte */
 
+typedef enum {
+	SLIPMUX_COAP = 0xA9,
+	SLIPMUX_DIAGNOSTIC = 0x0a,
+	// For IPv4 and IPv6 packets just use SLIP. A SlipMux client will understand it!
+} slipmuxType;
+
 typedef struct {
 	charRingBuf_t ringBuf;
 	char last; // last received character.
@@ -35,5 +41,8 @@ void slip_uart_putc(volatile slipBuffer_t* slip_buf, char c);
  */
 int slip_read_packet(volatile slipBuffer_t* buf, uint8_t *p, int len);
 void slip_send_packet(char *p, int len, void (*send_char)(char c));
+
+int slipmux_read_packet(volatile slipBuffer_t* buf, uint8_t *p, int len, uint8_t* type);
+void slipmux_send_packet(char *p, int len, uint8_t type, void (*send_char)(char c));
 
 #endif /* SRC_UTIL_SLIP_SLIP_H_ */
