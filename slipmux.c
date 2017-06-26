@@ -56,6 +56,8 @@ void slipmux_send_packet(char *p, int len, uint8_t type, void (*send_char)(char 
 /* RECV_PACKET: reads a packet from buf into the buffer located at "p".
  *      If more than len bytes are received, the packet will
  *      be truncated.
+ *      type must be 0 for new packets. If a partial packet was received, set type to that type != 0
+ *      type will be set to the type of the packet, which is the first byte in SLIPMUX
  *      Returns the number of bytes stored in the buffer.
  */
 int slipmux_read_packet(volatile slipBuffer_t* buf, uint8_t *p, int len, uint8_t* type) {
@@ -139,7 +141,9 @@ int slipmux_read_packet(volatile slipBuffer_t* buf, uint8_t *p, int len, uint8_t
 			// Store the character
 			if (received < len) {
 				if (first) {
-					type = c;
+					// TODO: Do not skip IPv4 and IPv6 first bytes
+					// TODO: Only skip type if *type == 0, else assume we already have a type
+					*type = c;
 					first = false;
 				} else {
 					p[received++] = c;
@@ -150,7 +154,7 @@ int slipmux_read_packet(volatile slipBuffer_t* buf, uint8_t *p, int len, uint8_t
 			// Store the character
 			if (received < len) {
 				if (first) {
-					type = c;
+					*type = c;
 					first = false;
 				} else {
 					p[received++] = c;
