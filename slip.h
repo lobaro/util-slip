@@ -9,6 +9,9 @@
 #define SRC_UTIL_SLIP_SLIP_H_
 
 #include "github.com/Lobaro/util-ringbuf/drv_ringbuf.h"
+#include "FreeRTOS.h"
+#include "task.h"
+#include "semphr.h"
 
 /* SLIP special character codes
  */
@@ -40,9 +43,10 @@ void slip_uart_putc(volatile slipBuffer_t* slip_buf, char c);
  * Returns 0 if the buffer does not contain a full packet.
  */
 int slip_read_packet(volatile slipBuffer_t* buf, uint8_t *p, int len);
-void slip_send_packet(char *p, int len, void (*send_char)(char c));
+void slip_send_packet(uint8_t *p, int len, void (*send_char)(char c));
 
 int slipmux_read_packet(volatile slipBuffer_t* buf, uint8_t *p, int len, uint8_t* type);
-void slipmux_send_packet(char *p, int len, uint8_t type, void (*send_char)(char c));
+void slipmux_send_packet(uint8_t *p, int len, uint8_t type, void (*send_char)(char c));
+void slipmux_setSemaphores(SemaphoreHandle_t rxSem, SemaphoreHandle_t txSem);
 
 #endif /* SRC_UTIL_SLIP_SLIP_H_ */

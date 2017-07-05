@@ -3,8 +3,6 @@
 #include <assert.h>
 #include "github.com/Lobaro/util-ringbuf/drv_ringbuf.h"
 #include "slip.h"
-#include "FreeRTOS.h"
-#include "task.h"
 
 void init_slip_buffer(slipBuffer_t* slip_buf, uint8_t* buf, int size) {
 	slip_buf->packetCnt = 0;
@@ -27,7 +25,7 @@ void slip_uart_putc(volatile slipBuffer_t* slip_buf, char c) {
 /* SEND_PACKET: sends a packet of length "len", starting at
  * location "p".
  */
-void slip_send_packet(char *p, int len, void (*send_char)(char c)) {
+void slip_send_packet(uint8_t *p, int len, void (*send_char)(char c)) {
 
 	/* send an initial END character to flush out any data that may
 	 * have accumulated in the receiver due to line noise

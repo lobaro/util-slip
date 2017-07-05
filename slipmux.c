@@ -2,20 +2,54 @@
 #include <stdint.h>
 #include <assert.h>
 #include "github.com/Lobaro/util-ringbuf/drv_ringbuf.h"
+#include "github.com/Lobaro/c-utils/lobaroAssert.h"
 #include "slip.h"
 #include "FreeRTOS.h"
 #include "task.h"
+#include "fcs16.h"
+
+static SemaphoreHandle_t txSemaphore = NULL;
+static SemaphoreHandle_t rxSemaphore = NULL;
+
+static void takeSemaphore(SemaphoreHandle_t sem) {
+	if (sem != NULL) {
+		if (!xSemaphoreTake(sem, pdMS_TO_TICKS(1000))) {
+			lobaroASSERT(false);
+		}
+	}
+}
+
+static void giveSemaphore(SemaphoreHandle_t sem) {
+	if (sem != NULL) {
+		if (!xSemaphoreGive(sem)) {
+			lobaroASSERT(false);
+		}
+	}
+}
+
+void slipmux_setSemaphores(SemaphoreHandle_t rxSem, SemaphoreHandle_t txSem) {
+	rxSemaphore = rxSem;
+	txSemaphore = txSem;
+}
 
 /* SEND_PACKET: sends a packet of length "len", starting at
  * location "p".
  */
-void slipmux_send_packet(char *p, int len, uint8_t type, void (*send_char)(char c)) {
-
+void slipmux_send_packet(uint8_t *p, int len, uint8_t type, void (*send_char)(char c)) {
+	takeSemaphore(txSemaphore);
 	/* send an initial END character to flush out any data that may
 	 * have accumulated in the receiver due to line noise
 	 */
 	send_char(SLIP_END);
+
+	// TODO: Skip type for IP packets
 	send_char(type);
+	uint16_t fcs = 0;
+	if (type == SLIPMUX_COAP) {
+		uint8_t frameType = SLIPMUX_COAP;
+		fcs = CalcFcs16(&frameType, 1); // Include the frameType into the FCS
+		fcs = CalcFcs16WithInit(fcs, p, len);
+	}
 
 	/* for each byte in the packet, send the appropriate character
 	 * sequence
@@ -48,9 +82,17 @@ void slipmux_send_packet(char *p, int len, uint8_t type, void (*send_char)(char 
 		p++;
 	}
 
+	// Append checksum
+	if (type == SLIPMUX_COAP) {
+		fcs ^= 0xffff; // Complement
+		send_char((uint8_t) fcs); // least significant byte first
+		send_char((uint8_t) (fcs >> 8));
+	}
+
 	/* tell the receiver that we're done sending the packet
 	 */
 	send_char(SLIP_END);
+	giveSemaphore(txSemaphore);
 }
 
 /* RECV_PACKET: reads a packet from buf into the buffer located at "p".
@@ -60,14 +102,16 @@ void slipmux_send_packet(char *p, int len, uint8_t type, void (*send_char)(char 
  *      type will be set to the type of the packet, which is the first byte in SLIPMUX
  *      Returns the number of bytes stored in the buffer.
  */
-int slipmux_read_packet(volatile slipBuffer_t* buf, uint8_t *p, int len, uint8_t* type) {
+int slipmux_read_packet(volatile slipBuffer_t* buf, uint8_t *p, int len, uint8_t* pType) {
 	char c;
 	int received = 0;
-	bool first = true;
+	bool first = (*pType == 0);
 
 	if (buf->packetCnt == 0) {
 		return 0;
 	}
+
+	takeSemaphore(rxSemaphore);
 
 	/* sit in a loop reading bytes until we put together
 	 * a whole packet.
@@ -79,6 +123,7 @@ int slipmux_read_packet(volatile slipBuffer_t* buf, uint8_t *p, int len, uint8_t
 		 */
 		if (isBufferEmpty(&(buf->ringBuf))) {
 			configASSERT(buf->packetCnt == 0);
+			giveSemaphore(rxSemaphore);
 			return received;
 		}
 		//taskENTER_CRITICAL();
@@ -103,9 +148,14 @@ int slipmux_read_packet(volatile slipBuffer_t* buf, uint8_t *p, int len, uint8_t
 			 */
 			if (received) {
 				buf->packetCnt--;
+				if (*pType == SLIPMUX_COAP && received >= 2) {
+					received -= 2; // Remove crc
+				}
+				giveSemaphore(rxSemaphore);
 				return received;
 			}
 			else {
+				// Ignore empty packets
 				first = true;
 				break;
 			}
@@ -117,6 +167,7 @@ int slipmux_read_packet(volatile slipBuffer_t* buf, uint8_t *p, int len, uint8_t
 		case SLIP_ESC:
 			if (isBufferEmpty(&(buf->ringBuf))) {
 				configASSERT(buf->packetCnt == 0);
+				giveSemaphore(rxSemaphore);
 				return received;
 			}
 			//taskENTER_CRITICAL();
@@ -142,8 +193,7 @@ int slipmux_read_packet(volatile slipBuffer_t* buf, uint8_t *p, int len, uint8_t
 			if (received < len) {
 				if (first) {
 					// TODO: Do not skip IPv4 and IPv6 first bytes
-					// TODO: Only skip type if *type == 0, else assume we already have a type
-					*type = c;
+					*pType = c;
 					first = false;
 				} else {
 					p[received++] = c;
@@ -154,7 +204,7 @@ int slipmux_read_packet(volatile slipBuffer_t* buf, uint8_t *p, int len, uint8_t
 			// Store the character
 			if (received < len) {
 				if (first) {
-					*type = c;
+					*pType = c;
 					first = false;
 				} else {
 					p[received++] = c;
@@ -162,4 +212,5 @@ int slipmux_read_packet(volatile slipBuffer_t* buf, uint8_t *p, int len, uint8_t
 			}
 		}
 	}
+	giveSemaphore(rxSemaphore);
 }
