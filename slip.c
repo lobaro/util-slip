@@ -114,7 +114,9 @@ int slip_read_packet(volatile slipBuffer_t* buf, uint8_t *p, int len) {
 			 * turn sent to try to detect line noise.
 			 */
 			if (received) {
+				taskENTER_CRITICAL();
 				buf->packetCnt--;
+				taskEXIT_CRITICAL();
 				return received;
 			}
 			else {

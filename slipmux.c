@@ -3,6 +3,7 @@
 #include <assert.h>
 #include "github.com/Lobaro/util-ringbuf/drv_ringbuf.h"
 #include "github.com/Lobaro/c-utils/lobaroAssert.h"
+#include "github.com/Lobaro/c-utils/logging.h"
 #include "slip.h"
 #include "FreeRTOS.h"
 #include "task.h"
@@ -107,11 +108,14 @@ int slipmux_read_packet(volatile slipBuffer_t* buf, uint8_t *p, int len, uint8_t
 	int received = 0;
 	bool first = (*pType == 0);
 
+	takeSemaphore(rxSemaphore);
+
 	if (buf->packetCnt == 0) {
+		giveSemaphore(rxSemaphore);
 		return 0;
 	}
 
-	takeSemaphore(rxSemaphore);
+
 
 	/* sit in a loop reading bytes until we put together
 	 * a whole packet.
@@ -122,6 +126,9 @@ int slipmux_read_packet(volatile slipBuffer_t* buf, uint8_t *p, int len, uint8_t
 		/* get a character to process
 		 */
 		if (isBufferEmpty(&(buf->ringBuf))) {
+			if (buf->packetCnt != 0) {
+				Log("Buffer is empty: start: %d, end: %d - but packetCnt = %d", buf->ringBuf.start,buf->ringBuf.end, buf->packetCnt);
+			}
 			configASSERT(buf->packetCnt == 0);
 			giveSemaphore(rxSemaphore);
 			return received;
@@ -147,7 +154,9 @@ int slipmux_read_packet(volatile slipBuffer_t* buf, uint8_t *p, int len, uint8_t
 			 * turn sent to try to detect line noise.
 			 */
 			if (received) {
+				taskENTER_CRITICAL();
 				buf->packetCnt--;
+				taskEXIT_CRITICAL();
 				if (*pType == SLIPMUX_COAP && received >= 2) {
 					received -= 2; // Remove crc
 				}
