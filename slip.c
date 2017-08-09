@@ -32,6 +32,14 @@ void slip_send_packet(uint8_t *p, int len, void (*send_char)(char c)) {
 	 */
 	send_char(SLIP_END);
 
+	slip_encode(p, len, send_char);
+
+	/* tell the receiver that we're done sending the packet
+	 */
+	send_char(SLIP_END);
+}
+
+void slip_encode(uint8_t *p, int len, void (*send_char)(char c)) {
 	/* for each byte in the packet, send the appropriate character
 	 * sequence
 	 */
@@ -59,13 +67,8 @@ void slip_send_packet(uint8_t *p, int len, void (*send_char)(char c)) {
 		default:
 			send_char(*p);
 		}
-
 		p++;
 	}
-
-	/* tell the receiver that we're done sending the packet
-	 */
-	send_char(SLIP_END);
 }
 
 /* RECV_PACKET: reads a packet from buf into the buffer located at "p".

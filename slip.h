@@ -44,6 +44,7 @@ void slip_uart_putc(volatile slipBuffer_t* slip_buf, char c);
  */
 int slip_read_packet(volatile slipBuffer_t* buf, uint8_t *p, int len);
 void slip_send_packet(uint8_t *p, int len, void (*send_char)(char c));
+void slip_encode(uint8_t *p, int len, void (*send_char)(char c));
 
 int slipmux_read_packet(volatile slipBuffer_t* buf, uint8_t *p, int len, uint8_t* type);
 void slipmux_send_packet(uint8_t *p, int len, uint8_t type, void (*send_char)(char c));

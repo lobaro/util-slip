@@ -52,42 +52,16 @@ void slipmux_send_packet(uint8_t *p, int len, uint8_t type, void (*send_char)(ch
 		fcs = CalcFcs16WithInit(fcs, p, len);
 	}
 
-	/* for each byte in the packet, send the appropriate character
-	 * sequence
-	 */
-	while (len--) {
-		switch (*p) {
-		/* if it's the same code as an END character, we send a
-		 * special two character code so as not to make the
-		 * receiver think we sent an END
-		 */
-		case SLIP_END:
-			send_char(SLIP_ESC);
-			send_char(SLIP_ESC_END);
-			break;
-
-			/* if it's the same code as an ESC character,
-			 * we send a special two character code so as not
-			 * to make the receiver think we sent an ESC
-			 */
-		case SLIP_ESC:
-			send_char(SLIP_ESC);
-			send_char(SLIP_ESC_ESC);
-			break;
-			/* otherwise, we just send the character
-			 */
-		default:
-			send_char(*p);
-		}
-
-		p++;
-	}
+	slip_encode(p, len, send_char);
 
 	// Append checksum
 	if (type == SLIPMUX_COAP) {
 		fcs ^= 0xffff; // Complement
-		send_char((uint8_t) fcs); // least significant byte first
-		send_char((uint8_t) (fcs >> 8));
+
+		uint8_t checkLsb = (uint8_t) fcs;
+		uint8_t checkMsb = (uint8_t) (fcs >> 8);
+		slip_encode(&checkLsb, 1, send_char); // least significant byte first
+		slip_encode(&checkMsb, 1, send_char);
 	}
 
 	/* tell the receiver that we're done sending the packet
