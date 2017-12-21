@@ -1,3 +1,4 @@
+#line __LINE__ "slipmux.c"
 #include <stdbool.h>
 #include <stdint.h>
 #include <assert.h>
