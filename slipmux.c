@@ -1,4 +1,3 @@
-#line __LINE__ "slipmux.c"
 #include <stdbool.h>
 #include <stdint.h>
 #include <assert.h>
@@ -37,7 +36,7 @@ void slipmux_setSemaphores(SemaphoreHandle_t rxSem, SemaphoreHandle_t txSem) {
 /* SEND_PACKET: sends a packet of length "len", starting at
  * location "p".
  */
-void slipmux_send_packet(uint8_t *p, int len, uint8_t type, void (*send_char)(char c)) {
+void slipmux_send_packet(const uint8_t* p, int len, uint8_t type, void (* send_char)(char c)) {
 	takeSemaphore(txSemaphore);
 	/* send an initial END character to flush out any data that may
 	 * have accumulated in the receiver due to line noise

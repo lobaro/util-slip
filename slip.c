@@ -40,7 +40,7 @@ void slip_send_packet(uint8_t *p, int len, void (*send_char)(char c)) {
 	send_char(SLIP_END);
 }
 
-void slip_encode(uint8_t *p, int len, void (*send_char)(char c)) {
+void slip_encode(const uint8_t* p, int len, void (* send_char)(char c)) {
 	/* for each byte in the packet, send the appropriate character
 	 * sequence
 	 */

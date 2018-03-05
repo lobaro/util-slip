@@ -15,10 +15,10 @@
 
 /* SLIP special character codes
  */
-#define SLIP_END             0300    /* indicates end of packet */
-#define SLIP_ESC             0333    /* indicates byte stuffing */
-#define SLIP_ESC_END         0334    /* ESC ESC_END means END data byte */
-#define SLIP_ESC_ESC         0335    /* ESC ESC_ESC means ESC data byte */
+#define SLIP_END             ((uint8_t)0300)    /* indicates end of packet */
+#define SLIP_ESC             ((uint8_t)0333)    /* indicates byte stuffing */
+#define SLIP_ESC_END         ((uint8_t)0334)    /* ESC ESC_END means END data byte */
+#define SLIP_ESC_ESC         ((uint8_t)0335)    /* ESC ESC_ESC means ESC data byte */
 
 typedef enum {
 	SLIPMUX_COAP = 0xA9,
@@ -44,10 +44,10 @@ void slip_uart_putc(volatile slipBuffer_t* slip_buf, char c);
  */
 int slip_read_packet(volatile slipBuffer_t* buf, uint8_t *p, int len);
 void slip_send_packet(uint8_t *p, int len, void (*send_char)(char c));
-void slip_encode(uint8_t *p, int len, void (*send_char)(char c));
+void slip_encode(const uint8_t* p, int len, void (* send_char)(char c));
 
 int slipmux_read_packet(volatile slipBuffer_t* buf, uint8_t *p, int len, uint8_t* type);
-void slipmux_send_packet(uint8_t *p, int len, uint8_t type, void (*send_char)(char c));
+void slipmux_send_packet(const uint8_t* p, int len, uint8_t type, void (* send_char)(char c));
 void slipmux_setSemaphores(SemaphoreHandle_t rxSem, SemaphoreHandle_t txSem);
 
 #endif /* SRC_UTIL_SLIP_SLIP_H_ */

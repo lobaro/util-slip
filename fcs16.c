@@ -49,14 +49,14 @@ static uint16_t fcstab[256] = {
 /*
  * Calculate a new fcs given the current fcs and the new data.
  */
-uint16_t CalcFcs16WithInit(uint16_t fcs, uint8_t* data, size_t len) {
+uint16_t CalcFcs16WithInit(uint16_t fcs, const uint8_t* data, size_t len) {
 	while (len--) {
 		fcs = (fcs >> 8) ^ fcstab[(fcs ^ *data++) & 0xff];
 	}
 	return (fcs);
 }
 
-uint16_t CalcFcs16(uint8_t* data, size_t len) {
+uint16_t CalcFcs16(const uint8_t* data, size_t len) {
 	return CalcFcs16WithInit(FCS16_INITIAL, data, len);
 }
 

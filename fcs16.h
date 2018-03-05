@@ -9,8 +9,8 @@
 #define UTIL_SLIP_FCS16_H_
 
 
-uint16_t CalcFcs16(uint8_t* data, size_t len) ;
-uint16_t CalcFcs16WithInit(uint16_t fcs, uint8_t* data, size_t len);
+uint16_t CalcFcs16(const uint8_t* data, size_t len) ;
+uint16_t CalcFcs16WithInit(uint16_t fcs, const uint8_t* data, size_t len);
 bool CheckFsc16(uint8_t* data, size_t len);
 
 void Test_Fcs16();
