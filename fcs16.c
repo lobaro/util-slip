@@ -2,8 +2,8 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <stddef.h>
-#include "github.com/Lobaro/c-utils/lobaroAssert.h"
-#include "github.com/Lobaro/c-utils/logging.h"
+#include "github.com/lobaro/c-utils/lobaroAssert.h"
+#include "github.com/lobaro/c-utils/logging.h"
 
 /*
  * FCS lookup table as calculated by the table generator.

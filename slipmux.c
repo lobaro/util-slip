@@ -1,9 +1,9 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <assert.h>
-#include "github.com/Lobaro/util-ringbuf/drv_ringbuf.h"
-#include "github.com/Lobaro/c-utils/lobaroAssert.h"
-#include "github.com/Lobaro/c-utils/logging.h"
+#include "github.com/lobaro/util-ringbuf/drv_ringbuf.h"
+#include "github.com/lobaro/c-utils/lobaroAssert.h"
+#include "github.com/lobaro/c-utils/logging.h"
 #include "slip.h"
 #include "FreeRTOS.h"
 #include "task.h"

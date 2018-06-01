@@ -8,7 +8,7 @@
 #ifndef SRC_UTIL_SLIP_SLIP_H_
 #define SRC_UTIL_SLIP_SLIP_H_
 
-#include "github.com/Lobaro/util-ringbuf/drv_ringbuf.h"
+#include "github.com/lobaro/util-ringbuf/drv_ringbuf.h"
 #include "FreeRTOS.h"
 #include "task.h"
 #include "semphr.h"

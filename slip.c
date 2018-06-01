@@ -2,7 +2,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <assert.h>
-#include "github.com/Lobaro/util-ringbuf/drv_ringbuf.h"
+#include "github.com/lobaro/util-ringbuf/drv_ringbuf.h"
 #include "slip.h"
 
 void init_slip_buffer(slipBuffer_t* slip_buf, uint8_t* buf, int size) {
