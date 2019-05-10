@@ -1,4 +1,3 @@
-#line __LINE__ "fcs16.c"
 #include <stdint.h>
 #include <stdbool.h>
 #include <stddef.h>

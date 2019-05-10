@@ -1,4 +1,3 @@
-#line __LINE__ "slip.c"
 #include <stdbool.h>
 #include <stdint.h>
 #include <assert.h>
